@@ -49,16 +49,16 @@ object Parser {
 
     //Este metodo faz o parsing de RSS gerando objetos ItemFeed
     @Throws(XmlPullParserException::class, IOException::class)
-    fun parse(rssFeed: String): List<ItemFeed> {
+    fun parse(rssFeed: String, main : MainActivity): List<ItemFeed> {
         val factory = XmlPullParserFactory.newInstance()
         val xpp = factory.newPullParser()
         xpp.setInput(StringReader(rssFeed))
         xpp.nextTag()
-        return readRss(xpp)
+        return readRss(xpp, main)
     }
 
     @Throws(XmlPullParserException::class, IOException::class)
-    fun readRss(parser: XmlPullParser): List<ItemFeed> {
+    fun readRss(parser: XmlPullParser, main : MainActivity): List<ItemFeed> {
         val items = ArrayList<ItemFeed>()
         parser.require(XmlPullParser.START_TAG, null, "rss")
         while (parser.next() != XmlPullParser.END_TAG) {
@@ -67,7 +67,7 @@ object Parser {
             }
             val name = parser.name
             if (name == "channel") {
-                items.addAll(readChannel(parser))
+                items.addAll(readChannel(parser, main))
             } else {
                 skip(parser)
             }
@@ -76,7 +76,7 @@ object Parser {
     }
 
     @Throws(IOException::class, XmlPullParserException::class)
-    fun readChannel(parser: XmlPullParser): List<ItemFeed> {
+    fun readChannel(parser: XmlPullParser, main : MainActivity): List<ItemFeed> {
         val items = ArrayList<ItemFeed>()
         parser.require(XmlPullParser.START_TAG, null, "channel")
         while (parser.next() != XmlPullParser.END_TAG) {
@@ -85,7 +85,7 @@ object Parser {
             }
             val name = parser.name
             if (name == "item") {
-                items.add(readItem(parser))
+                items.add(readItem(parser, main))
             } else {
                 skip(parser)
             }
@@ -94,7 +94,7 @@ object Parser {
     }
 
     @Throws(XmlPullParserException::class, IOException::class)
-    fun readItem(parser: XmlPullParser): ItemFeed {
+    fun readItem(parser: XmlPullParser, main : MainActivity): ItemFeed {
         var title: String? = null
         var link: String? = null
         var pubDate: String? = null
@@ -121,7 +121,13 @@ object Parser {
                 skip(parser)
             }
         }
-        return ItemFeed(title!!, link!!, pubDate!!, description!!, downloadLink!!)
+        val db = ItemFeedDB.getDatabase(main.applicationContext)
+        val item = db.itemFeedDao().search(title!!)
+
+        if (item != null) {
+            return ItemFeed(title!!, link!!, pubDate!!, description!!, downloadLink!!, item.path, item.duration)
+        }
+        return ItemFeed(title!!, link!!, pubDate!!, description!!, downloadLink!!, "", 0)
     }
 
     // Processa tags de forma parametrizada no feed.

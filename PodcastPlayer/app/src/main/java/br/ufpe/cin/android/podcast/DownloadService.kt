@@ -17,10 +17,10 @@ class DownloadService : IntentService("DownloadService") {
 
     public override fun onHandleIntent(i: Intent?) {
         try {
-            //checar se tem permissao... Android 6.0+
+            //Serviço para fazer o Download
             val root = getExternalFilesDir(DIRECTORY_DOWNLOADS)
             root?.mkdirs()
-            val output = File(root, i!!.data!!.lastPathSegment)
+            val output = File(root, i!!.data!!.lastPathSegment!!)
             if (output.exists()) {
                 output.delete()
             }
@@ -32,6 +32,7 @@ class DownloadService : IntentService("DownloadService") {
                 val `in` = c.inputStream
                 val buffer = ByteArray(8192)
                 var len = `in`.read(buffer)
+                var size = c.contentLength
                 while (len >= 0) {
                     out.write(buffer, 0, len)
                     len = `in`.read(buffer)
@@ -43,8 +44,14 @@ class DownloadService : IntentService("DownloadService") {
                 c.disconnect()
             }
 
-            LocalBroadcastManager.getInstance(this).sendBroadcast(Intent(DOWNLOAD_COMPLETE))
+            //Salvando o diretorio no DB
+            val db = ItemFeedDB.getDatabase(applicationContext)
+            db.itemFeedDao().addPath(i.getStringExtra("title"), output.path)
 
+            val intent = Intent(DOWNLOAD_COMPLETE)
+            intent.putExtra("title", i.getStringExtra("title"))
+
+            LocalBroadcastManager.getInstance(this).sendBroadcast(intent)
 
         } catch (e2: IOException) {
             Log.e(javaClass.getName(), "Exception durante download", e2)
@@ -53,6 +60,6 @@ class DownloadService : IntentService("DownloadService") {
     }
 
     companion object {
-        val DOWNLOAD_COMPLETE = "br.ufpe.cin.if710.services.action.DOWNLOAD_COMPLETE"
+        val DOWNLOAD_COMPLETE = "br.ufpe.cin.android.podcast.DOWNLOAD_COMPLETE"
     }
 }
